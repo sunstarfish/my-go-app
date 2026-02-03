@@ -1,0 +1,23 @@
+# 忽略非必要文件
+node_module
+.git
+.gitignore
+.DS_Store
+*.md
+README.md
+docker-compose.yml
+jenkins-compose.yml
+Dockerfile
+*.log
+node_modules/
+vendor/
+*.test.go
+*.exe
+*.out
+.env
+.env.local
+*.json
+*.yaml
+*.yml
+*.lock
+*.tmp
