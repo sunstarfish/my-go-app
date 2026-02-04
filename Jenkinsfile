@@ -24,7 +24,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("$$   {DOCKER_IMAGE}:   $${env.BUILD_ID}")
+                    docker.build("${DOCKER_IMAGE}:${env.BUILD_ID}")
                 }
             }
         }
@@ -33,8 +33,8 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'DockerHub') {
-                        docker.image("$$   {DOCKER_IMAGE}:   $${env.BUILD_ID}").push()
-                        docker.image("$$   {DOCKER_IMAGE}:   $${env.BUILD_ID}").push('latest')
+                        docker.image("${DOCKER_IMAGE}:${env.BUILD_ID}").push()
+                        docker.image("${DOCKER_IMAGE}:${env.BUILD_ID}").push('latest')
                     }
                 }
             }
