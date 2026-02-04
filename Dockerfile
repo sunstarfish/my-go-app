@@ -1,5 +1,5 @@
 # 构建阶段
-FROM golang:1.24-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 RUN go build -o main .
 
 # 运行阶段,推荐指定版本号，避免latest不稳定
-FROM alpine:3.17 
+FROM alpine:3.18 
 
 WORKDIR /app
 
