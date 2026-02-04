@@ -3,6 +3,10 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
+# 设置 Go 模块代理（国内镜像源）
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -15,6 +19,9 @@ FROM alpine:3.18
 WORKDIR /app
 
 COPY --from=builder /app/main .
+
+# 安装 CA 证书应该在创建用户之前，因为需要 root 权限
+RUN apk --no-cache add ca-certificates
 
 # 创建非 root 用户
 RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
