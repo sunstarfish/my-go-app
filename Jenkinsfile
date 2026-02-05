@@ -1,5 +1,12 @@
 pipeline {
-    agent any
+    // agent any
+     // 使用包含 Go 的 Docker 镜像作为代理
+    agent {
+        docker {
+            image 'golang:1.23-alpine'  // 官方 Go 镜像
+            args '-v /var/run/docker.sock:/var/run/docker.sock'  // 允许在容器内使用 Docker
+        }
+    }
 
     environment {
         // 使用你自己的信息替换
