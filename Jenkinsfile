@@ -1,10 +1,29 @@
 pipeline {
     // agent any
      // 使用包含 Go 的 Docker 镜像作为代理
+    // agent {
+    //     docker {
+    //         image 'golang:1.23-alpine'  // 官方 Go 镜像
+    //         args '-v /var/run/docker.sock:/var/run/docker.sock'  // 允许在容器内使用 Docker
+    //     }
+    // }
     agent {
         docker {
-            image 'golang:1.23-alpine'  // 官方 Go 镜像
-            args '-v /var/run/docker.sock:/var/run/docker.sock'  // 允许在容器内使用 Docker
+            // 使用包含 Go 和 Docker 的镜像
+            image 'golang:1.23-alpine'
+            
+            // 挂载 Docker socket 并安装 Docker CLI
+            args '''
+                -v /var/run/docker.sock:/var/run/docker.sock
+                -v /usr/bin/docker:/usr/bin/docker
+                -v /usr/libexec/docker:/usr/libexec/docker
+            '''
+            
+            // 或者在容器内安装 Docker CLI
+            args '''
+                -v /var/run/docker.sock:/var/run/docker.sock
+                && apk add --no-cache docker-cli
+            '''
         }
     }
 
@@ -47,6 +66,20 @@ pipeline {
                     echo "测试网络连接..."
                     ping -c 2 goproxy.cn || echo "ping 测试失败"
                     curl -I https://goproxy.cn || echo "curl 测试失败"
+
+                    echo "=== Docker 检查 ==="
+                    # 尝试安装 Docker CLI
+                    if ! command -v docker &> /dev/null; then
+                        echo "安装 Docker CLI..."
+                        apk add --no-cache docker-cli || echo "Docker CLI 安装失败"
+                    fi
+                    
+                    docker --version || echo "Docker 不可用"
+                    docker info 2>/dev/null || echo "无法连接 Docker daemon"
+                    
+                    echo "=== 当前目录 ==="
+                    pwd
+                    ls -la
                 '''
             }
         }
