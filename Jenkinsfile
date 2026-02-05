@@ -15,6 +15,9 @@ pipeline {
         
         // 可选：添加更多环境变量
         GO_VERSION = '1.23'
+          // 设置国内 Go 代理（关键！）
+        GOPROXY = 'https://goproxy.cn,direct'
+        GOSUMDB = 'off'  // 关闭校验，国内网络可能无法访问 sum.golang.org
         DOCKER_REGISTRY = 'https://index.docker.io/v1/'
     }
 
@@ -35,13 +38,33 @@ pipeline {
                 echo "工作空间: ${WORKSPACE}"
                 
                 // 检查 Go 版本
-                sh 'go version'
+                sh '''
+                    echo "=== Go 环境 ==="
+                    go version
+                    go env | grep -E "(GOPROXY|GOSUMDB|GOPATH|GO111MODULE)"
+                    
+                    echo "=== 网络测试 ==="
+                    echo "测试网络连接..."
+                    ping -c 2 goproxy.cn || echo "ping 测试失败"
+                    curl -I https://goproxy.cn || echo "curl 测试失败"
+                '''
             }
         }
 
         stage('Build and Test') {
             steps {
                 sh '''
+                    echo "=== 当前目录 ==="
+                    pwd
+                    ls -la
+                    
+                    echo "=== 检查 go.mod ==="
+                    cat go.mod || echo "go.mod 不存在"
+                    
+                    echo "=== 下载依赖 ==="
+                    go env GOPROXY
+                    go mod download -x
+
                     echo "清理和下载依赖..."
                     go mod tidy
                     
@@ -50,6 +73,9 @@ pipeline {
                     
                     echo "运行测试..."
                     go test -v ./...
+
+                    echo "=== 查看 vendor（如果有） ==="
+                    ls -la vendor/ 2>/dev/null || echo "没有 vendor 目录"
                 '''
             }
         }

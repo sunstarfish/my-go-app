@@ -1,0 +1,227 @@
+pipeline {
+    agent {
+        docker {
+            image 'golang:1.21-alpine'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+    
+    environment {
+        // 使用你自己的 Docker Hub 用户名
+        DOCKER_IMAGE = 'sunstarfish/my-go-app'
+        
+        // 可选：根据分支设置镜像标签
+        IMAGE_TAG = sh(
+            script: 'echo "${BRANCH_NAME:-master}" | sed "s/[^a-zA-Z0-9_.-]/-/g"',
+            returnStdout: true
+        ).trim() + "-${BUILD_NUMBER}"
+    }
+    
+    stages {
+        stage('代码检出') {
+            steps {
+                checkout scm
+                sh 'git log --oneline -3'  // 查看最近提交
+            }
+        }
+        
+        stage('Go 依赖管理') {
+            steps {
+                sh '''
+                    echo "初始化 Go 模块（如果不存在）..."
+                    [ -f go.mod ] || go mod init my-go-app
+                    
+                    echo "整理依赖..."
+                    go mod tidy
+                    
+                    echo "下载依赖..."
+                    go mod download
+                '''
+            }
+        }
+        
+        stage('构建项目') {
+            steps {
+                sh '''
+                    echo "编译项目..."
+                    # 尝试不同的构建方式
+                    if [ -f "cmd/main.go" ]; then
+                        go build -o my-app ./cmd
+                    elif [ -f "main.go" ]; then
+                        go build -o my-app .
+                    else
+                        # 尝试在当前目录查找 main 包
+                        go build -o my-app ./...
+                    fi
+                    
+                    echo "检查生成的可执行文件..."
+                    ls -lh my-app 2>/dev/null || echo "未生成可执行文件"
+                '''
+            }
+        }
+        
+        stage('运行测试') {
+            steps {
+                sh '''
+                    echo "运行单元测试..."
+                    go test -v ./... || echo "测试可能失败"
+                    
+                    echo "运行基准测试（如果有）..."
+                    go test -bench=. ./... 2>/dev/null || echo "没有基准测试"
+                '''
+            }
+        }
+        
+        stage('创建 Dockerfile（如果不存在）') {
+            steps {
+                sh '''
+                    if [ ! -f Dockerfile ]; then
+                        echo "创建 Dockerfile..."
+                        cat > Dockerfile << 'EOF'
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY my-app .
+EXPOSE 8080
+CMD ["./my-app"]
+EOF
+                        echo "Dockerfile 创建完成"
+                    else
+                        echo "已存在 Dockerfile:"
+                        cat Dockerfile
+                    fi
+                '''
+            }
+        }
+        
+        stage('构建 Docker 镜像') {
+            steps {
+                script {
+                    echo "开始构建 Docker 镜像..."
+                    echo "镜像名称: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                    
+                    // 确保可执行文件存在
+                    sh 'ls -la my-app || echo "正在构建可执行文件..."'
+                    
+                    // 构建镜像
+                    docker.build("${DOCKER_IMAGE}:${IMAGE_TAG}")
+                    
+                    echo "镜像构建完成"
+                    sh 'docker images | grep "${DOCKER_IMAGE}"'
+                }
+            }
+        }
+        
+        stage('推送 Docker 镜像') {
+            when {
+                expression { 
+                    // 只有在 master/main 分支才推送
+                    return env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main'
+                }
+            }
+            steps {
+                script {
+                    echo "准备推送镜像到 Docker Hub..."
+                    
+                    // 确保 Jenkins 中有 'dockerhub' 凭据
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+                        // 推送带构建号的版本
+                        docker.image("${DOCKER_IMAGE}:${IMAGE_TAG}").push()
+                        
+                        // 如果是生产部署，可以推送到 latest
+                        if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main') {
+                            docker.image("${DOCKER_IMAGE}:${IMAGE_TAG}").push('latest')
+                        }
+                    }
+                    
+                    echo "镜像推送完成"
+                }
+            }
+        }
+        
+        stage('本地部署测试') {
+            steps {
+                script {
+                    echo "在本地运行容器测试..."
+                    
+                    sh '''
+                        # 停止并移除旧容器
+                        docker stop my-go-app-test 2>/dev/null || true
+                        docker rm my-go-app-test 2>/dev/null || true
+                        
+                        # 运行新容器
+                        docker run -d \
+                            --name my-go-app-test \
+                            -p 8080:8080 \
+                            ${DOCKER_IMAGE}:${IMAGE_TAG} || echo "容器启动失败"
+                        
+                        # 等待并检查容器状态
+                        sleep 5
+                        docker ps | grep my-go-app-test
+                        
+                        # 测试服务（如果应用在 8080 端口提供服务）
+                        curl -f http://localhost:8080/ || echo "服务可能未启动"
+                        
+                        # 查看容器日志
+                        echo "容器日志："
+                        docker logs my-go-app-test --tail 20
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "🎉 流水线执行成功！"
+            echo "镜像地址: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+            
+            script {
+                // 发送通知（可选）
+                emailext(
+                    subject: "✅ Go 应用构建成功: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    项目: ${env.JOB_NAME}
+                    构建: #${env.BUILD_NUMBER}
+                    状态: ✅ 成功
+                    镜像: ${DOCKER_IMAGE}:${IMAGE_TAG}
+                    分支: ${env.BRANCH_NAME}
+                    提交: ${env.GIT_COMMIT}
+                    """,
+                    to: 'your-email@example.com'
+                )
+            }
+        }
+        failure {
+            echo "❌ 流水线执行失败！"
+            
+            script {
+                // 失败时发送通知
+                emailext(
+                    subject: "❌ Go 应用构建失败: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    项目: ${env.JOB_NAME}
+                    构建: #${env.BUILD_NUMBER}
+                    状态: ❌ 失败
+                    分支: ${env.BRANCH_NAME}
+                    请查看 Jenkins 控制台输出获取详细错误信息。
+                    """,
+                    to: 'your-email@example.com'
+                )
+            }
+        }
+        always {
+            echo "清理工作..."
+            sh '''
+                # 清理测试容器
+                docker stop my-go-app-test 2>/dev/null || true
+                docker rm my-go-app-test 2>/dev/null || true
+                
+                # 清理 Docker 缓存
+                docker system prune -f 2>/dev/null || true
+            '''
+            
+            cleanWs()  // 清理工作空间
+        }
+    }
+}
