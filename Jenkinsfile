@@ -30,7 +30,7 @@ pipeline {
         stage('Go Build & Test') {
             agent {
                 docker {
-                    image 'golang:1.22-alpine'
+                    image 'golang:1.23-alpine'
                     args '-u root:root'
                 }
             }
@@ -66,7 +66,7 @@ pipeline {
                 sh '''
                 echo "📝 生成 Dockerfile"
                 cat > Dockerfile << 'EOF'
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 WORKDIR /app
 ENV GOPROXY=https://goproxy.cn,direct
 COPY go.mod go.sum ./
