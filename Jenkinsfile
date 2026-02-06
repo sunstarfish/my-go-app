@@ -60,7 +60,9 @@ pipeline {
 
         stage('Prepare Dockerfile') {
             when {
-                not { fileExists('Dockerfile') }
+                expression {
+                    return !fileExists('Dockerfile')
+                }
             }
             steps {
                 sh '''
@@ -113,7 +115,9 @@ EOF
 
         stage('Deploy') {
             when {
-                fileExists('docker-compose.yml')
+                expression {
+                    return fileExists('docker-compose.yml')
+                }
             }
             steps {
                 sh '''
