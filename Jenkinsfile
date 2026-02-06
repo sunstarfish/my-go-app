@@ -69,25 +69,17 @@ pipeline {
                     curl -I https://goproxy.cn || echo "curl 测试失败"
 
                     echo "=== Docker 检查 ==="
-                    echo "=== 环境设置 ==="
-                    echo "构建ID: ${BUILD_ID}"
+                    # 尝试安装 Docker CLI
+                    if ! command -v docker &> /dev/null; then
+                        echo "安装 Docker CLI..."
+                        apk add --no-cache docker-cli || echo "Docker CLI 安装失败"
+                    fi
                     
-                    echo "=== 安装必要工具 ==="
-                    # 安装 curl、docker-cli 等必要工具
-                    apk add --no-cache \
-                        curl \
-                        docker-cli \
-                        docker-compose
+                    docker --version || echo "Docker 不可用"
+                    docker info 2>/dev/null || echo "无法连接 Docker daemon"
                     
-                    echo "=== 验证安装 ==="
-                    go version
-                    docker --version
-                    docker-compose --version
-                    
-                    echo "=== 测试 Docker 连接 ==="
-                    docker info && echo "Docker daemon 连接正常" || echo "Docker daemon 连接失败"
-                    
-                    echo "=== 目录内容 ==="
+                    echo "=== 当前目录 ==="
+                    pwd
                     ls -la
                 '''
             }
