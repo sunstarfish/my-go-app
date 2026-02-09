@@ -122,7 +122,12 @@ EOF
             steps {
                 sh '''
                 echo "🚢 部署应用"
-                docker --help
+                echo "🚢------查看docker版本---------"
+                docker --version
+                echo "🚢------查看docker详情---------"
+                docker info
+                echo "🚢------查看docker帮助信息---------"
+                docker info
                 docker compose down || true
                 docker compose pull
                 docker compose up -d
