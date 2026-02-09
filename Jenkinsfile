@@ -134,6 +134,23 @@ EOF
                 //         '
                 //     """
                 // }
+
+                // 或者
+                
+                // agent none
+                // steps {
+                //     sshagent(credentials: ['deploy-ssh-key']) {
+                //         sh '''
+                //         ssh -o StrictHostKeyChecking=no deploy@10.0.0.10 << 'EOF'
+                //         cd /opt/my-go-app
+                //         docker-compose down || true
+                //         docker-compose pull
+                //         docker-compose up -d
+                //         docker ps
+                //         EOF
+                //         '''
+                //     }
+                // }
                 sh '''
                 echo "🚢------jenkins安装docker compose---------"
                 echo "创建插件目录"
