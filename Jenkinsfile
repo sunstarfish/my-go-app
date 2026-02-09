@@ -122,6 +122,7 @@ EOF
             steps {
                 sh '''
                 echo "🚢 部署应用"
+                docker --help
                 docker compose down || true
                 docker compose pull
                 docker compose up -d
