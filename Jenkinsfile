@@ -11,6 +11,12 @@ pipeline {
         GOPROXY = 'https://goproxy.cn,direct'
         GOSUMDB = 'off'
         CGO_ENABLED = '0'
+
+        // 宿主机信息
+        CONTAINER_PORT = "8000"
+        DEPLOY_DIR = "/home/sucre/repos/my-go-app"
+        DEPLOY_USER = "fnkf"
+        DEPLOY_HOST = "192.168.5.103"
     }
 
     options {
@@ -120,6 +126,14 @@ EOF
                 }
             }
             steps {
+                // sshagent(['fnkf']) {
+                //     sh """
+                //         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '
+                //             cd ${DEPLOY_DIR} &&
+                //             docker compose up -d ${IMAGE_NAME}
+                //         '
+                //     """
+                // }
                 sh '''
                 echo "🚢------jenkins安装docker compose---------"
                 echo "创建插件目录"
