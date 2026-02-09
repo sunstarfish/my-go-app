@@ -121,6 +121,14 @@ EOF
             }
             steps {
                 sh '''
+                echo "🚢------jenkins安装docker compose---------"
+                echo "创建插件目录"
+                mkdir -p ~/.docker/cli-plugins
+                echo "下载最新版（以 Linux x86_64 为例）"
+                curl -SL https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+                echo "添加执行权限"
+                chmod +x ~/.docker/cli-plugins/docker-compose
+
                 echo "🚢 部署应用"
                 echo "🚢------查看docker版本---------"
                 docker --version
